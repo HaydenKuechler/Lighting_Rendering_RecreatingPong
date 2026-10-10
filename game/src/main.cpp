@@ -54,13 +54,16 @@ int main()
     paddle2_position.x = SCREEN_WIDTH * 0.95f;
     paddle1_position.y = paddle2_position.y = CENTER.y;
 
-    int test_score = 0;
+	int paddle1_score = 0;
+	int paddle2_score = 0;
+
 
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Pong");
     InitAudioDevice();
     SetTargetFPS(60);
 
     Sound coin = LoadSound("./assets/audio/sound_coin.mp3");
+	Sound hit = LoadSound("./assets/audio/sound_pong_walls.wav");
 
     while (!WindowShouldClose())
     {
@@ -71,9 +74,12 @@ int main()
             paddle1_position.y -= PADDLE_SPEED * dt;
         if (IsKeyDown(KEY_S))
             paddle1_position.y += PADDLE_SPEED * dt;
+        //ToDo -- add paddle2 controls for up/down arrow keys
 
-        // Mirror paddle 1 for now
-        paddle2_position.y = paddle1_position.y;
+        if (IsKeyDown(KEY_UP))
+            paddle2_position.y -= PADDLE_SPEED * dt;
+        if (IsKeyDown(KEY_DOWN))
+            paddle2_position.y += PADDLE_SPEED * dt;
 
         float phh = PADDLE_HEIGHT * 0.5f;
         paddle1_position.y = Clamp(paddle1_position.y, phh, SCREEN_HEIGHT - phh);
@@ -86,39 +92,49 @@ int main()
         Rectangle paddle2_rec = PaddleRec(paddle2_position);
 
         // TODO -- increment the scoring player's score after they've touched the ball and the ball goes too far right/left
-        test_score++;
-        if (ball_rec.x <= 0.0f || ball_rec.x + ball_rec.width >= SCREEN_WIDTH)
+
+        if (ball_rec.x + ball_rec.width >= SCREEN_WIDTH)
         {
-            ball_direction.x *= -1.0f;
+            paddle2_score++;
+            ResetBall(ball_position, ball_direction);
         }
-        if (ball_rec.y <= 0.0f || ball_rec.y + ball_rec.height >= SCREEN_HEIGHT)
+        else if (ball_rec.x < 0)
         {
-            ball_direction.y *= -1.0f;
+            paddle1_score++;
+            ResetBall(ball_position, ball_direction);
         }
-        if (CheckCollisionRecs(ball_rec, paddle1_rec) || CheckCollisionRecs(ball_rec, paddle2_rec))
+        else
         {
-            ball_direction.x *= -1.0f;
-            PlaySound(coin);
+            if (ball_rec.y <= 0.0f || ball_rec.y + ball_rec.height >= SCREEN_HEIGHT)
+            {
+                ball_direction.y *= -1.0f;
+                PlaySound(hit);
+            }
+            if (CheckCollisionRecs(ball_rec, paddle1_rec) || CheckCollisionRecs(ball_rec, paddle2_rec))
+            {
+                ball_direction.x *= -1.0f;
+                PlaySound(coin);
+            }
+
+            // Update ball position after collision resolution, then render
+            ball_position = ball_position + ball_direction * BALL_SPEED * dt;
+
+            BeginDrawing();
+            ClearBackground(BLACK);
+            DrawRectangleRec(BallRec(ball_position), WHITE);
+            DrawRectangleRec(PaddleRec(paddle1_position), WHITE);
+            DrawRectangleRec(PaddleRec(paddle2_position), WHITE);
+
+            // Text format requires you to put a '%i' wherever you want an integer, then add said integer after the comma
+            const char* score_text = TextFormat("%i %i ", paddle1_score, paddle2_score);
+
+            // We can measure our text for more exact positioning. This puts our score in the center of our screen!
+            DrawText(score_text, SCREEN_WIDTH * 0.5f - MeasureText(score_text, 20) * 0.5f, 50, 20, BLUE);
+            EndDrawing();
         }
-
-        // Update ball position after collision resolution, then render
-        ball_position = ball_position + ball_direction * BALL_SPEED * dt;
-
-        BeginDrawing();
-        ClearBackground(BLACK);
-        DrawRectangleRec(BallRec(ball_position), WHITE);
-        DrawRectangleRec(PaddleRec(paddle1_position), WHITE);
-        DrawRectangleRec(PaddleRec(paddle2_position), WHITE);
-
-        // Text format requires you to put a '%i' wherever you want an integer, then add said integer after the comma
-        const char* test_score_text = TextFormat("Test Score: %i ", test_score);
-
-        // We can measure our text for more exact positioning. This puts our score in the center of our screen!
-        DrawText(test_score_text, SCREEN_WIDTH * 0.5f - MeasureText(test_score_text, 20) * 0.5f, 50, 20, BLUE);
-        EndDrawing();
     }
-
     UnloadSound(coin);
+	UnloadSound(hit);
     CloseAudioDevice();
     CloseWindow();
     return 0;
